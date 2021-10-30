@@ -1,0 +1,314 @@
+
+var map;
+var markers = {};
+var paths = {};
+var tracks = $tracks_json;
+var cols = [
+ 'violet','red','green','blue','cyan','magenta','yellow','purple','orange'
+];
+
+$(document).ready(function() {
+
+ $("#map").css({"width":$(document).width(),"height":$(document).height()});
+ var map_centre = new google.maps.LatLng(53.343809,-1.514333);
+
+ var map_opts = {
+     zoom: 17,
+     center: map_centre,
+     MapTypeId: google.maps.MapTypeId.ROADMAP,
+     zoomControl: true,
+     streetViewControl: false
+ };
+
+ map = new google.maps.Map(document.getElementById("map"), map_opts);
+
+ for (i in tracks) {
+  T = tracks[i];
+  U = [];
+  for (j in T) {
+   P = new google.maps.LatLng(T[j][1],T[j][2]);
+   P.time = T[j][0];
+   U.push(P);
+  }
+
+  paths[i] = new google.maps.Polyline({
+   map : map,
+   strokeColor : cols[i % 9],
+   path : U
+  });
+
+  var icon = new google.maps.MarkerImage('icons/' + i + '.png',null,null,null,new google.maps.Size(30,30));
+
+  markers[i] = new google.maps.Marker({
+   position : P,
+   map: map,
+   icon : icon,
+   title : i
+  });
+ }
+});
+
+
+
+
+<script type="text/javascript">
+
+var id = {$params->id};
+var is_fake = {$params->is_fake};
+var is_mobile = {$params->is_mobile};
+var map;
+var lat = 0;
+var lng = 0;
+var pos = {};
+var markers = {};
+var noises = {$noises_json};
+var is_in_woods = 0;
+
+var woods_x = [
+ -1.520670483542123,
+ -1.520498138476774,
+ -1.518859320545364,
+ -1.517744484740862,
+ -1.517752886197002,
+ -1.518116008241556,
+ -1.518877972982369,
+ -1.518909326112611,
+ -1.518413538029803,
+ -1.514757364736242,
+ -1.513140765173637,
+ -1.511223619541231,
+ -1.509883918054774,
+ -1.509462547343051,
+ -1.509841106820806,
+ -1.510080036100957,
+ -1.511688516531236,
+ -1.513580567351953,
+ -1.515400720905071,
+ -1.518396776382652,
+ -1.520670483542123
+];
+
+var woods_y = [
+ 53.34766218287741,
+ 53.34686529330398,
+ 53.34647783510098,
+ 53.34360406039328,
+ 53.34228167407219,
+ 53.34077766589555,
+ 53.34070722547669,
+ 53.34009471164371,
+ 53.33988383709964,
+ 53.34025904288594,
+ 53.34058790804263,
+ 53.34126992817640,
+ 53.34225275712899,
+ 53.34256983717089,
+ 53.34442983383653,
+ 53.34490743986352,
+ 53.34581886542532,
+ 53.34646236742562,
+ 53.34697390997092,
+ 53.34797956411364,
+ 53.34766218287741
+];
+
+function pnpoly( nvert, vertx, verty, testx, testy ) {
+ var i, j, c = false;
+ for( i = 0, j = nvert-1; i < nvert; j = i++ ) {
+  if( ( ( verty[i] > testy ) != ( verty[j] > testy ) ) &&
+            ( testx < ( vertx[j] - vertx[i] ) * ( testy - verty[i] ) / ( verty[j] - verty[i] ) + vertx[i] ) ) {
+                c = !c;
+  }
+ }
+ return c;
+}
+
+function check_in_woods(x,y) {
+ var n, i, j, c = false;
+ n = woods.length;
+ for (i = 0, j = n-1; i < n; j = i++ ) {
+  if ((( woods[i][1] > y ) != ( woods[j][1] > y )) &&
+      ( x < ( woods[j][0] - woods[i][0] ) * (y - woods[i][1]) / ( woods[j][1] - woods[i][1] ) + woods[i][0] ) ) {
+        c = !c;
+  }
+ }
+ return c;
+}
+
+var pos_opts = {enableHighAccuracy : 1, maximumAge: 10000, timeout : 10000};
+
+function noise() {
+ try {
+  if (is_in_woods) {
+   var i = Math.floor(noises.length * Math.random());
+   var n = document.getElementById('noise');
+   if (n.canPlayType('audio/mpeg')) {  
+    n.src = 'noise/' + noises[i] + '.mp3';
+   } else if (n.canPlayType('audio/aac')) {
+    n.src = 'noise/' + noises[i] + '.aac';
+   }
+   n.autoplay = true;
+   n.load();
+  }
+ } catch(e) {
+ }
+
+ var t = Math.floor((1 + Math.random() * 3) * 60 * 1000);
+ // var t = 10000;
+
+ setTimeout(noise,t);
+}
+
+function set_lat_lng(p) {
+ var first;
+
+ if (p) {
+  first = (lat == 0 && lng == 0);
+
+  lat = p.coords.latitude;
+  lng = p.coords.longitude;
+
+  was_in_woods = is_in_woods;
+  is_in_woods = pnpoly(21,woods_x,woods_y,lng,lat);
+
+  if (first) {
+   map.panTo(new google.maps.LatLng(lat,lng));
+  }
+
+  if (is_in_woods && ! was_in_woods) {
+   try {
+    var n = document.getElementById('noise');
+    n.src = 'noise/danger.mp3';
+    n.autoplay = true;
+    n.load();
+   } catch(e) {
+   }
+  }
+ }
+
+ setTimeout(function() {
+  if (fake) {
+   set_lat_lng({coords : {latitude : lat + 0.0001, longitude : lng + 0.0001}});
+  } else {
+   if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(set_lat_lng,try_again,pos_opts);
+   }
+  }
+ },10000);
+}
+
+function try_again() {
+ setTimeout(function() {
+  if (fake) {
+   set_lat_lng({coords : {latitude : lat + 0.0001, longitude : lng + 0.0001}});
+  } else {
+   if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(set_lat_lng,try_again,pos_opts);
+   }
+  }
+ },10000);
+}
+
+function dist(lat1,lng1,lat2,lng2) {
+ a1 = lat1 * Math.PI/180;
+ b1 = lng1 * Math.PI/180;
+ a2 = lat2 * Math.PI/180;
+ b2 = lng2 * Math.PI/180;
+
+ dlat = (lat2 - lat1) * Math.PI/180;
+ dlng = (lng2 - lng1) * Math.PI/180;
+		
+ a  = Math.pow(Math.sin((a2-a1)/2),2) + Math.cos(a1) * Math.cos(a2) * Math.pow(Math.sin((b2-b1)/2),2);
+ c  = 2 * Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); // great circle distance in radians
+ dk = c * 6373000; 
+}
+
+function show(p) {
+ var x,y,i,j,s,icon,m,xy,d;
+ pos = p;
+ 
+ for (i in pos) {
+  x = parseFloat(pos[i][0]);
+  y = parseFloat(pos[i][1]);
+  j = parseInt(pos[i][2]);
+
+  if(markers[i]) {
+   markers[i].setPosition(new google.maps.LatLng(x,y));
+  } else {
+
+   if (mobile) {
+    s = (i == id || i == 666) ? 80 : 60;
+   } else {
+    s = (i == id || i == 666) ? 48 : 36;
+   }
+
+   icon = new google.maps.MarkerImage('icons/' + j + '.png',null,null,null,new google.maps.Size(s,s));
+
+   markers[i] = new google.maps.Marker({
+    position : new google.maps.LatLng(x,y),
+    map: map,
+    icon : icon,
+    title : i
+   });
+  }
+ }
+
+ if (markers[666]) {
+  m = markers[666];
+  xy = m.getPosition();
+  x = xy.lat();
+  y = xy.lng();
+  d = dist(lat,lng,x,y);
+  if (d < 100) {
+   m.setVisible(false);
+  } else {
+   m.setVisible(true);
+  }
+ }
+};
+
+function fetch() {
+ $.ajax({
+  type : 'POST',
+  url : 'index.php',
+  data : {id : id, cmd : 'send_data', lat : lat, lng : lng},
+  success : show
+//  ,error : function(j,s,e) {alert('Ajax error: ' + s);}
+ }).always(setTimeout(fetch,10000));
+};
+
+function init() {
+ $("#start").css({"display" : "none"});
+ $("#map").css({"width":$(document).width(),"height":$(document).height()});
+ var map_centre = new google.maps.LatLng(53.343809,-1.514333);
+
+ var map_opts = {
+     zoom: 17,
+     center: map_centre,
+     MapTypeId: google.maps.MapTypeId.ROADMAP,
+     zoomControl: true,
+     streetViewControl: false
+ };
+
+ map = new google.maps.Map(document.getElementById("map"), map_opts);
+
+ if (fake) {
+//  var x = 53.343809 + (Math.random() - 0.5) * 0.003;
+//  var y = -1.514333 + (Math.random() - 0.5) * 0.003;
+  var x = 53.339529;
+  var y = -1.519044;
+  set_lat_lng({coords : {latitude : x, longitude : y}});
+ } else {
+  if (navigator.geolocation) {
+   navigator.geolocation.getCurrentPosition(set_lat_lng,try_again,pos_opts);
+  }
+ }
+
+ fetch();
+
+ var n = document.getElementById('noise');
+ n.src = 'noise/danger.mp3';
+ n.autoplay = true;
+ n.load();
+
+ noise();
