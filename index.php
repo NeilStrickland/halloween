@@ -42,8 +42,8 @@ function get_params() {
  $params->is_mobile = preg_match("/Mobile|iP(hone|od|ad)|Android|BlackBerry|IEMobile/",
 	   	                 $_SERVER['HTTP_USER_AGENT']);
 
- if (array_key_exists('id',$_SESSION)) {
-  $params->id = $_SESSION['id'];
+ if (array_key_exists('halloween_id',$_SESSION)) {
+  $params->id = $_SESSION['halloween_id'];
  }
 
  $params->id = (int) get_optional_parameter('id',$params->id);
@@ -53,7 +53,7 @@ function get_params() {
  }
 
  if ($params->user && ! $params->user->user_agent) {
-  $params->user->user_agent = $_SERVER['user_agent'];
+  $params->user->user_agent = $_SERVER['HTTP_USER_AGENT'];
   $params->user->save();
  }
 
@@ -89,10 +89,15 @@ function send_data($params) {
  $t0 = $params->t - 3000;
  $w = "x.t >= {$t0} AND x.lat <> 0 AND x.lng <> 0";
  $tracks = $halloween->load_where('tracks',$w);
- 
- header('Content-Type: application/json');
 
- echo json_encode($tracks);
+ $tracks0 = array();
+
+ foreach($tracks as $t) {
+  $tracks0[$t->user_id] = array($t->lat,$t->lng,$t->icon_id); 
+ }
+
+ header('Content-Type: application/json');
+ echo json_encode($tracks0);
  exit;
 }
 
@@ -145,7 +150,7 @@ $scripts
 <source src="" type="audio/mp3"/>
 </audio>
 <div id="start" style="font-size: 64px;">
-<a href="javascript:halloween.init()">Click to start</a>
+<a href="javascript:halloween.init({$params->id})">Click to start</a>
 </div>
 <div id="map" style="margin:0px; width:1px; height: 1px"></div>
 </body>
@@ -251,8 +256,8 @@ HTML;
 
   echo <<<HTML
  <td id="image_td_{$i}" class="unselected">
-  <input type="radio" id="icon_id_{$i}" onclick="button_clicked($i)" name="icon_id" value="$i">
-  <img id="icon_img_{$i}" onclick="image_clicked($i)" width="$image_width" src="icons/$i.png"/>
+  <input type="radio" id="icon_id_{$i}" onclick="halloween.reg_button_handler($i)" name="icon_id" value="$i">
+  <img id="icon_img_{$i}" onclick="halloween.reg_image_handler($i)" width="$image_width" src="icons/$i.png"/>
  </td>
 
 HTML;

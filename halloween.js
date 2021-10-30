@@ -1,5 +1,7 @@
 var halloween = {};
 
+halloween.is_fake = 0;
+
 halloween.woods = [
  [-1.520670483542123,  53.34766218287741],
  [-1.520498138476774,  53.34686529330398],
@@ -24,6 +26,12 @@ halloween.woods = [
  [-1.520670483542123,  53.34766218287741]
 ];		    
 
+halloween.lat = 0;
+halloween.lng = 0;
+halloween.is_in_woods = 0;
+halloween.gps_period = 1000;
+halloween.data_period = 1000;
+
 halloween.token = 'pk.eyJ1IjoibmVpbHN0cmlja2xhbmQiLCJhIjoiY2t2Y3dsNG9kNG9yZTJwcXd4NTlxZmVkdiJ9.K-4AglQjb6DSsq2ezkREHw';
 
 halloween.pos_opts = {
@@ -42,6 +50,7 @@ halloween.pnpoly= function( nvert, vertx, verty, testx, testy ) {
 };
 
 halloween.check_in_woods = function(x,y) {
+ return 1;
  var w = this.woods;
  var n = w.length;
  var c = 0;
@@ -87,11 +96,11 @@ halloween.set_lat_lng = function(p) {
   this.lng = p.coords.longitude;
   this.lat = p.coords.latitude;
 
-  var was_in_woods = this.is_in_woods;
+  var was_in_woods = (! first) && this.is_in_woods;
   this.is_in_woods = this.check_in_woods(this.lng,this.lat);
 
   if (first) {
-   map.panTo(new google.maps.LatLng(lat,lng));
+   this.map.panTo([this.lat,this.lng]);
   }
 
   if (this.is_in_woods && ! was_in_woods) {
@@ -106,13 +115,17 @@ halloween.set_lat_lng = function(p) {
 
  setTimeout(function() {
   if (me.is_fake) {
-   me.set_lat_lng({coords : {latitude : me.lat + 0.0001, longitude : me.lng + 0.0001}});
+   halloween.set_lat_lng({coords : {latitude : me.lat + 0.0001, longitude : me.lng + 0.0001}});
   } else {
    if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(me.set_lat_lng,me.try_again,me.pos_opts);
+    navigator.geolocation.getCurrentPosition(
+     function(p) { me.set_lat_lng(p); },
+     function() { me.try_again(); },
+     this.pos_opts
+    );
    }
   }
- },10000);
+ },this.gps_period);
 };
 
 halloween.try_again = function() {
@@ -123,10 +136,14 @@ halloween.try_again = function() {
    me.set_lat_lng({coords : {latitude : me.lat + 0.0001, longitude : me.lng + 0.0001}});
   } else {
    if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(me.set_lat_lng,me.try_again,me.pos_opts);
+    navigator.geolocation.getCurrentPosition(
+     function(p) { me.set_lat_lng(p); },
+     function() { me.try_again(); },
+     this.pos_opts
+    );
    }
   }
- },10000);
+ },this.gps_period);
 };
 
 halloween.dist = function(lat1,lng1,lat2,lng2) {
@@ -149,12 +166,12 @@ halloween.show = function(p) {
  this.pos = p;
 
  for (var i in this.pos) {
-  x = parseFloat(pos[i][0]);
-  y = parseFloat(pos[i][1]);
-  j = parseInt(pos[i][2]);
+  var x = parseFloat(this.pos[i][0]);
+  var y = parseFloat(this.pos[i][1]);
+  var j = parseInt(this.pos[i][2]);
 
   if(this.markers[i]) {
-   this.markers[i].setPosition(new google.maps.LatLng(x,y));
+   this.markers[i].setLatLng([x,y]);
   } else {
    var s;
    
@@ -164,23 +181,21 @@ halloween.show = function(p) {
     s = (i == this.id || i == 666) ? 48 : 36;
    }
 
-   var icon = new google.maps.MarkerImage('icons/' + j + '.png',null,null,null,new google.maps.Size(s,s));
-
-   this.markers[i] = new google.maps.Marker({
-    position : new google.maps.LatLng(x,y),
-    map: map,
-    icon : icon,
-    title : i
+   var icon = L.icon({
+    iconUrl : 'icons/' + j + '.png',
+    iconSize : [s,s]
    });
+   
+   this.markers[i] = L.marker([x,y],{ icon : icon }).addTo(this.map);
   }
  }
 
  if (this.markers[666]) {
-  m = this.markers[666];
-  xy = m.getPosition();
-  x = xy.lat();
-  y = xy.lng();
-  d = dist(lat,lng,x,y);
+  var m = this.markers[666];
+  var xy = m.getLatLng();
+  var x = xy.lat();
+  var y = xy.lng();
+  var d = dist(lat,lng,x,y);
   if (d < 100) {
    m.setVisible(false);
   } else {
@@ -196,9 +211,10 @@ halloween.fetch = function() {
   type : 'POST',
   url : 'index.php',
   data : {id : this.id, cmd : 'send_data', lat : this.lat, lng : this.lng},
-  success : show
-//  ,error : function(j,s,e) {alert('Ajax error: ' + s);}
- }).always(setTimeout(function() { me.fetch(); },10000));
+  dataType : 'json',
+  success : function(p) { me.show(p); },
+  error : function(j,s,e) { console.log(j); console.log(e); alert('Ajax error: ' + s);}
+ }).always(setTimeout(function() { me.fetch(); },this.data_period));
 };
 
 halloween.reg_button_handler = function(i) {
@@ -236,7 +252,11 @@ halloween.reg_image_handler = function(i) {
  }
 }
 
-halloween.init = function() {
+halloween.init = function(id) {
+ var me = this;
+
+ this.id = id;
+
  this.noise = document.getElementById('noise');
  this.markers = {};
 
@@ -253,4 +273,29 @@ halloween.init = function() {
     zoomOffset: -1,
     accessToken: this.token
  }).addTo(this.map);
+
+ if (this.is_fake) {
+  //  var x = 53.343809 + (Math.random() - 0.5) * 0.003;
+  //  var y = -1.514333 + (Math.random() - 0.5) * 0.003;
+    var x = 53.339529;
+    var y = -1.519044;
+    this.set_lat_lng({coords : {latitude : x, longitude : y}});
+ } else {
+  if (navigator.geolocation) {
+   navigator.geolocation.getCurrentPosition(
+    function(p) { me.set_lat_lng(p); },
+    function() { me.try_again(); },
+    this.pos_opts
+   );
+  }
+ }
+  
+ this.fetch();
+  
+ this.noise.src = 'noise/danger.mp3';
+ this.noise.autoplay = true;
+ this.noise.load();
+  
+ this.play_noise();
 };
+  
