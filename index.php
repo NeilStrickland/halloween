@@ -2,8 +2,6 @@
 
 require_once('include/halloween.inc');
 
-// http://goo.gl/2uzuuQ
-
 $params = get_params();
 
 if (1 || ($params->id && $params->lat && $params->lng)) {
@@ -20,6 +18,8 @@ if ($params->cmd == 'send_data') {
  register($params);
 } else if ($params->cmd == 'preregister' || ! $params->id) {
  registration_page($params);
+} else if ($params->cmd == 'show_params') {
+ show_params($params);
 } else {
  show_map($params);
 }
@@ -39,8 +39,7 @@ function get_params() {
  $params->lng = 0;
  $params->t = time();
 
- $params->is_mobile = preg_match("/Mobile|iP(hone|od|ad)|Android|BlackBerry|IEMobile/",
-	   	                 $_SERVER['HTTP_USER_AGENT']);
+ $params->is_mobile =  preg_match('/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|re)\/|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i',$_SERVER['HTTP_USER_AGENT'])||preg_match('/1207|6310|6590|3gso|4thp|50[1-6]i|770s|802s|a wa|abac|ac(er|oo|s\-)|ai(ko|rn)|al(av|ca|co)|amoi|an(ex|ny|yw)|aptu|ar(ch|go)|as(te|us)|attw|au(di|\-m|r |s )|avan|be(ck|ll|nq)|bi(lb|rd)|bl(ac|az)|br(e|v)w|bumb|bw\-(n|u)|c55\/|capi|ccwa|cdm\-|cell|chtm|cldc|cmd\-|co(mp|nd)|craw|da(it|ll|ng)|dbte|dc\-s|devi|dica|dmob|do(c|p)o|ds(12|\-d)|el(49|ai)|em(l2|ul)|er(ic|k0)|esl8|ez([4-7]0|os|wa|ze)|fetc|fly(\-|_)|g1 u|g560|gene|gf\-5|g\-mo|go(\.w|od)|gr(ad|un)|haie|hcit|hd\-(m|p|t)|hei\-|hi(pt|ta)|hp( i|ip)|hs\-c|ht(c(\-| |_|a|g|p|s|t)|tp)|hu(aw|tc)|i\-(20|go|ma)|i230|iac( |\-|\/)|ibro|idea|ig01|ikom|im1k|inno|ipaq|iris|ja(t|v)a|jbro|jemu|jigs|kddi|keji|kgt( |\/)|klon|kpt |kwc\-|kyo(c|k)|le(no|xi)|lg( g|\/(k|l|u)|50|54|\-[a-w])|libw|lynx|m1\-w|m3ga|m50\/|ma(te|ui|xo)|mc(01|21|ca)|m\-cr|me(rc|ri)|mi(o8|oa|ts)|mmef|mo(01|02|bi|de|do|t(\-| |o|v)|zz)|mt(50|p1|v )|mwbp|mywa|n10[0-2]|n20[2-3]|n30(0|2)|n50(0|2|5)|n7(0(0|1)|10)|ne((c|m)\-|on|tf|wf|wg|wt)|nok(6|i)|nzph|o2im|op(ti|wv)|oran|owg1|p800|pan(a|d|t)|pdxg|pg(13|\-([1-8]|c))|phil|pire|pl(ay|uc)|pn\-2|po(ck|rt|se)|prox|psio|pt\-g|qa\-a|qc(07|12|21|32|60|\-[2-7]|i\-)|qtek|r380|r600|raks|rim9|ro(ve|zo)|s55\/|sa(ge|ma|mm|ms|ny|va)|sc(01|h\-|oo|p\-)|sdk\/|se(c(\-|0|1)|47|mc|nd|ri)|sgh\-|shar|sie(\-|m)|sk\-0|sl(45|id)|sm(al|ar|b3|it|t5)|so(ft|ny)|sp(01|h\-|v\-|v )|sy(01|mb)|t2(18|50)|t6(00|10|18)|ta(gt|lk)|tcl\-|tdg\-|tel(i|m)|tim\-|t\-mo|to(pl|sh)|ts(70|m\-|m3|m5)|tx\-9|up(\.b|g1|si)|utst|v400|v750|veri|vi(rg|te)|vk(40|5[0-3]|\-v)|vm40|voda|vulc|vx(52|53|60|61|70|80|81|83|85|98)|w3c(\-| )|webc|whit|wi(g |nc|nw)|wmlb|wonu|x700|yas\-|your|zeto|zte\-/i',substr($_SERVER['HTTP_USER_AGENT'],0,4));
 
  if (array_key_exists('halloween_id',$_SESSION)) {
   $params->id = $_SESSION['halloween_id'];
@@ -61,7 +60,7 @@ function get_params() {
  $params->lng = (float) get_optional_parameter('lng',0);
  $params->is_fake = get_optional_parameter('is_fake',0) ? 1 : 0;
 
- $cmds = array('show_map','send_data','preregister','register','show_history');
+ $cmds = array('show_map','send_data','preregister','register','show_history','show_params');
  $params->cmd = $params->id ? 'show_map' : 'preregister';
  $params->cmd = get_restricted_parameter('cmd',$cmds,$params->cmd);
 
@@ -104,6 +103,8 @@ function send_data($params) {
 //////////////////////////////////////////////////////////////////////
  
  function scripts() {
+  $h = md5_file('halloween.js');
+  
   $s = <<<HTML
 <script 
   src="https://code.jquery.com/jquery-3.6.0.js"
@@ -118,7 +119,7 @@ function send_data($params) {
   integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
   crossorigin="">
 </script>
-<script src="halloween.js"></script>
+<script src="halloween.js?{$h}"></script>
 
 HTML
  ;
@@ -150,7 +151,7 @@ $scripts
 <source src="" type="audio/mp3"/>
 </audio>
 <div id="start" style="font-size: 64px;">
-<a href="javascript:halloween.init({$params->id})">Click to start</a>
+<a href="javascript:halloween.init({$params->id},{$params->is_mobile})">Click to start</a>
 </div>
 <div id="map" style="margin:0px; width:1px; height: 1px"></div>
 </body>
@@ -350,6 +351,14 @@ Try turning off the WiFi and refreshing the page.
 $foot
 
 HTML;
+}
+
+//////////////////////////////////////////////////////////////////////
+
+function show_params($params) {
+ echo "<pre>";
+ var_dump($params);
+ exit;
 }
 
 //////////////////////////////////////////////////////////////////////
