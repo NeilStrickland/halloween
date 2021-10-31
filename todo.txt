@@ -1,0 +1,9 @@
+Show outline of woods
+Coordinates for different sections of the woods
+Show holding page before start time/outside woods
+Hide submission button before name entered and icon selected
+More icons
+Try navigator.geolocation.watchposition
+Refactor with promises
+Preload noises
+Maybe do more in client-side javascript
