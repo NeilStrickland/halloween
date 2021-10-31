@@ -26,16 +26,28 @@ halloween.woods = [
  [-1.520670483542123,  53.34766218287741]
 ];		    
 
+halloween.noises = [
+ 'arvada','beware','boogie','boo','chains','crickets','danger','door1',
+ 'door2','dragon','evillaugh','evil','feet','ghost1','ghost2','ghost3',
+ 'ghost4','grunt','laugh2','laugh','monster','owl1','owl2','owl','pigs',
+ 'rain','run','scream2','scream','spectre','storm','tasty','witchez',
+ 'witchlaugh','witch','wolf1','wolf2'
+];
+
 halloween.lat = 0;
 halloween.lng = 0;
 halloween.is_in_woods = 0;
-halloween.gps_period = 1000;
-halloween.data_period = 1000;
+halloween.gps_period = 10000;
+halloween.data_period = 10000;
+halloween.self_mobile_size = 100;
+halloween.other_mobile_size = 80;
+halloween.self_size = 48;
+halloween.other_size = 36;
 
 halloween.token = 'pk.eyJ1IjoibmVpbHN0cmlja2xhbmQiLCJhIjoiY2t2Y3dsNG9kNG9yZTJwcXd4NTlxZmVkdiJ9.K-4AglQjb6DSsq2ezkREHw';
 
 halloween.pos_opts = {
- enableHighAccuracy : 1, maximumAge: 10000, timeout : 10000
+ enableHighAccuracy : 1, maximumAge: 5000, timeout : 10000
 };
 
 halloween.pnpoly= function( nvert, vertx, verty, testx, testy ) {
@@ -71,20 +83,20 @@ halloween.play_noise = function() {
   if (this.is_in_woods) {
    var i = Math.floor(this.noises.length * Math.random());
    if (this.noise.canPlayType('audio/mpeg')) {  
-    this.noise.src = 'noise/' + noises[i] + '.mp3';
+    this.noise.src = 'noise/' + this.noises[i] + '.mp3';
    } else if (this.noise.canPlayType('audio/aac')) {
-    this.noise.src = 'noise/' + noises[i] + '.aac';
    }
    this.noise.autoplay = true;
    this.noise.load();
   }
  } catch(e) {
+  console.log(e);
  }
 
  var t = Math.floor((1 + Math.random() * 3) * 60 * 1000);
- // var t = 10000;
+ // var t = 5000;
 
- setTimeout(me.play_noise,t);
+ setTimeout(function() { me.play_noise(); },t);
 };
 
 halloween.set_lat_lng = function(p) {
@@ -176,9 +188,9 @@ halloween.show = function(p) {
    var s;
    
    if (this.is_mobile) {
-    s = (i == this.id || i == 666) ? 80 : 60;
+    s = (i == this.id || i == 666) ? this.self_mobile_size : this.other_mobile_size;
    } else {
-    s = (i == this.id || i == 666) ? 48 : 36;
+    s = (i == this.id || i == 666) ? this.self_size : this.other_size;
    }
 
    var icon = L.icon({
@@ -213,7 +225,7 @@ halloween.fetch = function() {
   data : {id : this.id, cmd : 'send_data', lat : this.lat, lng : this.lng},
   dataType : 'json',
   success : function(p) { me.show(p); },
-  error : function(j,s,e) { console.log(j); console.log(e); alert('Ajax error: ' + s);}
+  error : function(j,s,e) { console.log(j); console.log(e); console.log('Ajax error: ' + s);}
  }).always(setTimeout(function() { me.fetch(); },this.data_period));
 };
 
@@ -252,11 +264,19 @@ halloween.reg_image_handler = function(i) {
  }
 }
 
-halloween.init = function(id) {
+halloween.init = function(id,is_mobile) {
  var me = this;
 
  this.id = id;
+ this.is_mobile = is_mobile;
 
+ if ('wakeLock' in navigator) {
+  try {
+   navigator.wakeLock.request('screen');
+  } catch(e) {
+  }
+ }
+ 
  this.noise = document.getElementById('noise');
  this.markers = {};
 
@@ -265,10 +285,11 @@ halloween.init = function(id) {
 
  this.map = L.map('map').setView([53.343809,-1.514333],17);
 
+ // or: satellite-v9
  L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
     attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
-    maxZoom: 18,
-    id: 'mapbox/satellite-v9',
+    maxZoom: 22,
+    id: 'mapbox/streets-v11',
     tileSize: 512,
     zoomOffset: -1,
     accessToken: this.token
